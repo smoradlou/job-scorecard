@@ -1,60 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import ValuesInterview from "./ValuesInterview.jsx";
 
-const CRITERIA = [
-  {
-    key: "stability",
-    label: "Financial stability",
-    hint: "Base ≥ €120k, runway/profitability, meaningful comp",
-  },
-  {
-    key: "security",
-    label: "Security",
-    hint: "Track record of team stability, not reorg-prone",
-  },
-  {
-    key: "control",
-    label: "Control",
-    hint: "Real technical authority, Staff/Lead-level scope",
-  },
-  {
-    key: "courage",
-    label: "Courage",
-    hint: "Genuinely new territory, not maintenance work",
-  },
-  {
-    key: "curiosity",
-    label: "Curiosity",
-    hint: "Frontier-adjacent, research-friendly, evaluation/agentic work",
-  },
-  {
-    key: "relocation",
-    label: "Canada path",
-    hint: "DE + CA offices, remote-DE friendly, eases relocation",
-  },
-];
-
-const DEFAULT_WEIGHTS = {
-  stability: 5,
-  security: 5,
-  control: 4,
-  courage: 3,
-  curiosity: 4,
-  relocation: 3,
-};
-
-const emptyJob = (n) => ({
+const emptyJobFor = (criteriaList, n) => ({
   id: Date.now() + Math.random(),
   name: `Offer ${n}`,
-  scores: Object.fromEntries(CRITERIA.map((c) => [c.key, 5])),
+  scores: Object.fromEntries(criteriaList.map((c) => [c.key, 5])),
   notes: "",
 });
 
 export default function JobScorecard() {
-  const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
-  const [jobs, setJobs] = useState([emptyJob(1)]);
-  const [expanded, setExpanded] = useState(jobs[0]?.id);
+  const [criteria, setCriteria] = useState(null);
+  const [interviewMode, setInterviewMode] = useState(false);
+  const [weights, setWeights] = useState({});
+  const [jobs, setJobs] = useState([]);
+  const [expanded, setExpanded] = useState(null);
   const [showWeights, setShowWeights] = useState(false);
   const [showAnalyze, setShowAnalyze] = useState(false);
   const [jdText, setJdText] = useState("");
@@ -67,13 +28,16 @@ export default function JobScorecard() {
   const [saveError, setSaveError] = useState("");
   const saveTimeout = useRef(null);
 
-  // Load saved offers/weights from the backend once on mount.
+  // Load saved criteria/offers/weights from the backend once on mount. A
+  // file missing `criteria` (never onboarded, or the pre-values-interview
+  // schema) leaves criteria null, which routes to the values interview.
   useEffect(() => {
     (async () => {
       try {
         const response = await fetch("/api/offers");
         if (response.ok) {
           const data = await response.json();
+          if (Array.isArray(data.criteria) && data.criteria.length > 0) setCriteria(data.criteria);
           if (data.weights) setWeights(data.weights);
           if (Array.isArray(data.jobs) && data.jobs.length > 0) {
             setJobs(data.jobs);
@@ -89,16 +53,19 @@ export default function JobScorecard() {
     })();
   }, []);
 
-  // Debounced autosave whenever offers/weights change, after the initial load.
+  // Debounced autosave whenever criteria/offers/weights change, after the
+  // initial load. Nothing is written while criteria is null (still
+  // onboarding) or mid-redefine-before-confirm, so a redefinition in
+  // progress can never clobber the last good save.
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !criteria) return;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(async () => {
       try {
         const response = await fetch("/api/offers", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ weights, jobs }),
+          body: JSON.stringify({ criteria, weights, jobs }),
         });
         if (!response.ok) throw new Error("Save failed");
         setSaveError("");
@@ -107,7 +74,23 @@ export default function JobScorecard() {
       }
     }, 500);
     return () => clearTimeout(saveTimeout.current);
-  }, [weights, jobs, loaded]);
+  }, [criteria, weights, jobs, loaded]);
+
+  const emptyJob = (n) => emptyJobFor(criteria, n);
+
+  const completeValuesInterview = (newCriteria) => {
+    setCriteria(newCriteria);
+    setWeights(Object.fromEntries(newCriteria.map((c) => [c.key, c.weight ?? 3])));
+    setJobs((prevJobs) =>
+      prevJobs.length === 0
+        ? [emptyJobFor(newCriteria, 1)]
+        : prevJobs.map((j) => ({
+            ...j,
+            scores: { ...Object.fromEntries(newCriteria.map((c) => [c.key, 5])), ...j.scores },
+          }))
+    );
+    setInterviewMode(false);
+  };
 
   const fetchJDFromUrl = async () => {
     if (!jdUrl.trim()) return;
@@ -139,7 +122,7 @@ export default function JobScorecard() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jdText, criteria: CRITERIA }),
+        body: JSON.stringify({ jdText, criteria }),
       });
 
       const parsed = await response.json();
@@ -159,7 +142,7 @@ export default function JobScorecard() {
         id: Date.now() + Math.random(),
         name,
         scores: {
-          ...Object.fromEntries(CRITERIA.map((c) => [c.key, 5])),
+          ...Object.fromEntries(criteria.map((c) => [c.key, 5])),
           ...parsed.scores,
         },
         notes: parsed.rationale || "",
@@ -180,8 +163,8 @@ export default function JobScorecard() {
   };
 
   const weightedTotal = (job) => {
-    const maxPossible = CRITERIA.reduce((s, c) => s + weights[c.key] * 10, 0);
-    const raw = CRITERIA.reduce((s, c) => s + weights[c.key] * job.scores[c.key], 0);
+    const maxPossible = criteria.reduce((s, c) => s + (weights[c.key] ?? 3) * 10, 0);
+    const raw = criteria.reduce((s, c) => s + (weights[c.key] ?? 3) * (job.scores[c.key] ?? 5), 0);
     return Math.round((raw / maxPossible) * 100);
   };
 
@@ -203,17 +186,17 @@ export default function JobScorecard() {
       )
     );
 
-  const radarData = CRITERIA.map((c) => {
-    const point = { criterion: c.label };
-    jobs.forEach((j) => {
-      point[j.name] = j.scores[c.key];
-    });
-    return point;
-  });
+  const radarData = criteria
+    ? criteria.map((c) => {
+        const point = { criterion: c.label };
+        jobs.forEach((j) => { point[j.name] = j.scores[c.key] ?? 5; });
+        return point;
+      })
+    : [];
 
   const colors = ["#E8B04B", "#4FA89B", "#C97064", "#8A8FD1", "#6FBF73"];
 
-  const ranked = [...jobs].sort((a, b) => weightedTotal(b) - weightedTotal(a));
+  const ranked = criteria ? [...jobs].sort((a, b) => weightedTotal(b) - weightedTotal(a)) : [];
 
   if (!loaded) {
     return (
@@ -225,6 +208,16 @@ export default function JobScorecard() {
       >
         Loading your scorecard…
       </div>
+    );
+  }
+
+  if (!criteria || interviewMode) {
+    return (
+      <ValuesInterview
+        existingCriteria={criteria}
+        onComplete={completeValuesInterview}
+        onCancel={criteria ? () => setInterviewMode(false) : undefined}
+      />
     );
   }
 
@@ -241,6 +234,15 @@ export default function JobScorecard() {
           <p style={{ fontFamily: "system-ui, sans-serif", fontSize: 14, color: "#A6A18F", maxWidth: 520, margin: 0 }}>
             Weighted against your core values. Score each offer 0–10 per criterion, adjust weights if your priorities shift.
           </p>
+          <button
+            onClick={() => setInterviewMode(true)}
+            style={{
+              marginTop: 8, background: "none", border: "none", color: "#5A6178", cursor: "pointer",
+              fontFamily: "system-ui, sans-serif", fontSize: 12, textDecoration: "underline", padding: 0,
+            }}
+          >
+            Redefine my values
+          </button>
           {saveError && (
             <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#C97064", marginTop: 8 }}>
               {saveError}
@@ -342,17 +344,17 @@ export default function JobScorecard() {
           </button>
           {showWeights && (
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-              {CRITERIA.map((c) => (
+              {criteria.map((c) => (
                 <div key={c.key}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "system-ui, sans-serif", fontSize: 13, marginBottom: 4 }}>
                     <span>{c.label}</span>
-                    <span style={{ color: "#E8B04B" }}>{weights[c.key]}</span>
+                    <span style={{ color: "#E8B04B" }}>{weights[c.key] ?? 3}</span>
                   </div>
                   <input
                     type="range"
                     min="1"
                     max="5"
-                    value={weights[c.key]}
+                    value={weights[c.key] ?? 3}
                     onChange={(e) => setWeights({ ...weights, [c.key]: Number(e.target.value) })}
                     style={{ width: "100%", accentColor: "#E8B04B" }}
                   />
@@ -437,11 +439,11 @@ export default function JobScorecard() {
 
               {expanded === job.id && (
                 <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
-                  {CRITERIA.map((c) => (
+                  {criteria.map((c) => (
                     <div key={c.key}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "system-ui, sans-serif", fontSize: 13, marginBottom: 2 }}>
                         <span>{c.label}</span>
-                        <span style={{ color: colors[idx % colors.length] }}>{job.scores[c.key]}</span>
+                        <span style={{ color: colors[idx % colors.length] }}>{job.scores[c.key] ?? 5}</span>
                       </div>
                       <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, color: "#5A6178", marginBottom: 5 }}>
                         {c.hint}
@@ -450,7 +452,7 @@ export default function JobScorecard() {
                         type="range"
                         min="0"
                         max="10"
-                        value={job.scores[c.key]}
+                        value={job.scores[c.key] ?? 5}
                         onChange={(e) => updateScore(job.id, c.key, Number(e.target.value))}
                         style={{ width: "100%", accentColor: colors[idx % colors.length] }}
                       />

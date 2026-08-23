@@ -4,43 +4,37 @@
 
 ### 1. Purpose
 
-A personal tool for evaluating job offers/postings against a fixed set of
-personal values, so decisions are made against explicit criteria rather than
-gut feel or the persuasive framing of any one company's pitch.
+A personal tool for evaluating job offers/postings against a **user-defined**
+set of values criteria, so decisions are made against explicit, personally
+meaningful criteria rather than gut feel or any one company's pitch.
 
 Single user (Sara). Not a multi-tenant product. No auth, no backend database
 required for the core scorecard — everything lives in component state for a
-session.
+session, persisted to a local JSON file between sessions.
 
-### 2. Core values / criteria
+### 2. Values criteria (user-defined)
 
-Six fixed criteria, derived from a personal values exercise (Financial
-stability, Security, Control, Courage, Curiosity) plus one practical
-constraint (Canada relocation path). These are NOT meant to be user-editable
-in the UI — they're intentionally fixed so scoring stays comparable across
-offers evaluated months apart. If the underlying values change, edit the
-`CRITERIA` constant in code directly.
+Criteria are produced by a **chat-style interview** on first run: the app
+interviews the user about their priorities, synthesizes 4–7 criteria, and
+presents them for review/editing before adoption. The user can rename,
+reweight, add, or remove criteria before confirming.
 
-| key | label | what it measures |
-|---|---|---|
-| `stability` | Financial stability | Base ≥ €120k (current floor), runway/profitability of employer, meaningful total comp |
-| `security` | Security | Track record of team/role stability; not reorg-prone; company health |
-| `control` | Control | Real technical/architectural authority; Staff/Lead-level scope vs. pure IC execution |
-| `courage` | Courage | Genuinely new technical territory vs. maintenance work |
-| `curiosity` | Curiosity | Frontier-adjacent work: LLM evaluation, agentic systems, RAG, research-friendliness |
-| `relocation` | Canada path | Dual DE/UK + Canada offices, remote-friendly, eases planned relocation in 1.5–2 years |
+Each criterion has the shape `{ key, label, hint, weight }`:
+- `key` — auto-derived slug (e.g. `"financial-stability"`), never directly
+  edited — re-derived from label on every change to prevent key collisions
+- `label` — short human name shown in the UI (e.g. "Financial stability")
+- `hint` — one-sentence description shown under each slider
+- `weight` — 1–5, set by the model and user-adjustable at any time
 
-The floor for `stability` (€120k base) is a hard constraint in the user's
-head, not currently enforced in software — the tool scores it 0-10 but does
-not block/flag offers below the floor. This is a candidate feature (see
-Roadmap).
+The user can redefine their criteria at any time via "Redefine my values" in
+the header. Redefinition does not destroy existing scores mid-process —
+the current scorecard is preserved until the new one is confirmed.
 
 ### 3. Scoring model
 
 - Each offer gets a 0–10 score per criterion (manual slider, or auto-filled
   by the JD analyzer — see below).
-- Each criterion has a weight, 1–5, user-adjustable, defaulting to:
-  stability 5, security 5, control 4, curiosity 4, courage 3, relocation 3.
+- Each criterion has a weight, 1–5, user-adjustable after initial synthesis.
 - **Weighted total** = `Σ(weight × score) / Σ(weight × 10) × 100`, i.e. a
   percentage of the maximum possible weighted score. This normalizes total
   score to 0–100 regardless of how weights are distributed, so totals stay
@@ -75,13 +69,14 @@ Roadmap).
 
 ### 5. Data persistence
 
-Offers, scores, weights, and notes are persisted server-side as a single
-JSON file (`server/data/offers.json`, gitignored — this is personal job-
-search data, not project source). On load, the app fetches `GET
-/api/offers` and hydrates state from it (falling back to defaults if
-nothing's saved yet, e.g. first run). Every change debounce-saves via `PUT
-/api/offers` (500ms after the last edit) so typing in a notes field doesn't
-hammer the disk with a write per keystroke.
+Criteria, weights, offers, scores, and notes are persisted server-side as a
+single JSON file (`server/data/offers.json`, gitignored — personal job-
+search data, not project source). Shape: `{ criteria, weights, jobs }`.
+On load, the app fetches `GET /api/offers` and hydrates from it. Missing
+or empty `criteria` in the saved file means "not onboarded" — the app
+routes to the values interview. Every change debounce-saves via `PUT
+/api/offers` (500ms after the last edit), gated on criteria being non-null
+so mid-interview state never clobbers a valid save.
 
 This means the API server (`npm run dev:all`, not just `npm run dev`) is
 now required for full functionality, not only for the JD analyzer — without
@@ -121,5 +116,5 @@ is intentionally NOT persisted — only the offer data itself.
    partner.
 4. ~~Proper backend proxy for the JD analyzer so it works outside Claude.ai~~
    — done (see CLAUDE.md).
-5. Optional: let weights be saved as named presets ("early career risk
-   tolerance" vs. "stability-first") rather than one fixed set.
+5. ~~Optional: let weights be saved as named presets~~ — superseded by dynamic
+   criteria; each criteria set carries its own weights from synthesis.

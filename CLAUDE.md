@@ -6,35 +6,56 @@ issues below.
 
 ## What this project is
 
-A single-page React tool ("Career Compass") for scoring job offers against
-six fixed personal-value criteria. Full context and the scoring model are in
-`PRODUCT_SPEC.md` — read that first for the "why," this file is the "how."
+A single-page React tool ("Career Compass") for scoring job offers against a
+**user-defined** set of values criteria, elicited via a chat interview on
+first run. Full context is in `PRODUCT_SPEC.md` — read that first for the
+"why," this file is the "how."
 
 ## Current state of the repo
 
-Scaffolded as a Vite project, with a small Express proxy alongside it for the
-JD analyzer:
+Scaffolded as a Vite project, with a small Express proxy alongside it:
 
 ```
 job-scorecard/
 ├── src/
-│   ├── JobScorecard.jsx   ← the entire app UI, single component (unsplit)
+│   ├── JobScorecard.jsx   ← main scorecard UI
+│   ├── ValuesInterview.jsx ← chat interview + criteria review/edit UI
 │   ├── App.jsx            ← trivial wrapper, renders <JobScorecard />
 │   └── main.jsx           ← Vite/React entry point
 ├── server/
-│   ├── index.js           ← Express proxy: /api/analyze, /api/fetch-jd, /api/offers (persistence)
-│   └── data/offers.json   ← persisted offers/weights (gitignored — personal data, not source)
+│   ├── index.js           ← Express proxy: /api/analyze, /api/fetch-jd,
+│   │                         /api/offers (persistence), /api/values-chat,
+│   │                         /api/values-synthesize
+│   └── data/offers.json   ← persisted criteria/weights/jobs (gitignored)
 ├── public/compass.svg     ← favicon
 ├── index.html
-├── vite.config.js         ← proxies /api/* to the Express server on :8787 in dev
+├── vite.config.js         ← proxies /api/* to Express on :8787 in dev
 ├── package.json
-├── .env.example           ← copy to .env, fill in ANTHROPIC_API_KEY (.env is gitignored)
+├── .env.example           ← copy to .env, fill in ANTHROPIC_API_KEY
 ├── PRODUCT_SPEC.md
 └── CLAUDE.md
 ```
 
-`JobScorecard.jsx` itself was NOT split into multiple components — only
-wrapped, per the note below about single-file vs. splitting.
+## Values interview
+
+On first load (no saved `criteria`), `JobScorecard` renders `ValuesInterview`
+instead of the scorecard. The interview has two phases:
+
+1. **Chat** — calls `POST /api/values-chat` (body `{ messages }`), which
+   injects a system prompt for a warm/adaptive career coach and returns
+   `{ reply }` (~500 tokens). The "Build my scorecard" button appears after
+   ≥1 exchange and is always user-triggered.
+2. **Review** — calls `POST /api/values-synthesize` (body `{ messages }`),
+   which produces `{ criteria: [{key,label,hint,weight}], summary }` (~1800
+   tokens, strict JSON). The user can rename/reweight/add/remove rows before
+   confirming. Keys are re-derived from labels via `slugify+dedupe` on every
+   edit — never directly user-editable (avoids key-collision footgun).
+
+On confirm, `JobScorecard.completeValuesInterview` sets `criteria`/`weights`,
+backfills existing jobs with default scores for new criterion keys, and clears
+`interviewMode`. A "Redefine my values" button in the header sets
+`interviewMode = true` without nulling criteria — so a reload mid-redefine
+restores the previous scorecard intact, not the interview.
 
 ## JD analyzer — backend proxy (resolved)
 
@@ -43,9 +64,10 @@ which Vite's dev server proxies to `server/index.js` (Express, port 8787,
 overridable via `PORT` env var). That server holds `ANTHROPIC_API_KEY`
 server-side (from `.env`, never committed) and does the actual Anthropic
 Messages API call, including the prompt construction and the JSON-extraction/
-retry logic that used to live in the frontend. The frontend just POSTs
-`{ jdText, criteria: CRITERIA }` and gets back parsed `{ role_title, company,
-scores, rationale }` or `{ error }`.
+retry logic that used to live in the frontend. The frontend POSTs
+`{ jdText, criteria }` (using the current dynamic criteria, not a fixed
+constant) and gets back parsed `{ role_title, company, scores, rationale }`
+or `{ error }`.
 
 **Do not** move the API key or the `fetch("https://api.anthropic.com/...")`
 call back into frontend code — that was the original bug (key-less browser
@@ -83,17 +105,16 @@ single-user tool.
 ## Persistence (resolved)
 
 `GET/PUT /api/offers` in `server/index.js` reads/writes a single JSON file,
-`server/data/offers.json` (dir created on first write; gitignored — it's the
-user's personal job-search data, not project source). Writes go to a
-`.tmp` file then get renamed over the real one, so a crash mid-write can't
-leave a corrupt file.
+`server/data/offers.json` (dir created on first write; gitignored — personal
+data, not source). Shape: `{ criteria, weights, jobs }`. Writes go to a
+`.tmp` file then get renamed, so a crash mid-write leaves no corrupt file.
 
-`JobScorecard.jsx` loads this once on mount (`useEffect`, hydrates `weights`
-and `jobs`; a 404 just means nothing's saved yet, so it keeps the built-in
-defaults) and debounce-saves 500ms after any change to `weights` or `jobs`
-via a `PUT`. A `loaded` flag gates both the save effect and initial render
-(shows "Loading your scorecard…") so the pre-hydration default state never
-gets written back and clobbers a real save.
+`JobScorecard.jsx` loads once on mount (`useEffect`); hydrates `criteria`,
+`weights`, and `jobs` if `criteria` is a non-empty array (missing `criteria`
+— including the old pre-interview schema — means "not onboarded," routes to
+the interview). Debounce-saves 500ms after any change, **gated on `!loaded ||
+!criteria`** so mid-interview state never clobbers a valid save. `PUT`
+requires non-empty `criteria` — the server returns 400 without it.
 
 Deliberately NOT persisted: which panels are expanded, in-progress JD
 text/URL input fields — only the offer data itself. If the save fails (e.g.
@@ -113,18 +134,17 @@ JD analyzer — see Commands below, always run `dev:all` for real use.
   about, not easier.
 - **Colors:** reuse the existing palette constants rather than inventing new
   hex values ad hoc (see `PRODUCT_SPEC.md` §6 for the palette and rationale).
-- **Single file vs. splitting:** the component is currently one file by
-  design (easy to drop into Claude.ai as a single artifact). If you split it
-  into multiple components/files for local dev, keep a note in this file
-  about the new structure, and confirm with the user before doing so — they
-  may want to keep re-uploading a single file to Claude.ai as an artifact
-  too.
+- **Component split:** the app is now two files — `JobScorecard.jsx` (main
+  scorecard) and `ValuesInterview.jsx` (interview flow). Don't fold them back
+  into one without checking — the split is deliberate (see design.md in the
+  OpenSpec change).
 - **State:** everything is local component state (`useState`), no Redux/
   Zustand/context needed at this scale. Don't introduce state management
   libraries unless the feature genuinely requires cross-tree sharing.
-- **The six criteria are fixed on purpose** (see spec §2) — don't make them
-  user-editable in the UI without checking with the user first; comparability
-  across offers scored months apart depends on the criteria staying stable.
+- **Criteria are user-defined, not fixed.** `criteria` is `useState(null)` in
+  `JobScorecard`; null means "not onboarded yet," which routes to the
+  interview. Never re-introduce a hardcoded `CRITERIA` constant — dynamic
+  criteria are now the foundation of the whole scoring/persistence model.
 
 ## Commands
 

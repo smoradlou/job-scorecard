@@ -1,0 +1,50 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  Career Compass — a personal single-page React tool ("job-scorecard") for
+  scoring job offers/postings against a person's own values. Single user,
+  no auth, no database — a small Express proxy (server/index.js) alongside
+  a Vite/React frontend. Full narrative context lives in PRODUCT_SPEC.md
+  (the "why") and CLAUDE.md (the "how" — current architecture, conventions,
+  known issues); read both before proposing changes so specs/design stay
+  consistent with them, and update them in the same change when scoring
+  model, criteria, or architecture shifts.
+
+  Conventions to preserve:
+  - Styling: plain inline `style={{ ... }}` objects, no CSS framework/
+    Tailwind — keep it a portable, dependency-light frontend.
+  - State: local component state (useState), no Redux/Zustand/context.
+  - Persistence: a single gitignored JSON file (server/data/offers.json),
+    atomic writes (tmp file + rename), debounce-saved from the frontend.
+  - The JD analyzer and any future AI-assisted features call the Anthropic
+    Messages API server-side only (server/index.js), never from the
+    browser — API keys must never reach frontend code.
+  - This is a personal tool (also used as a public portfolio/product-
+    prototype piece) for one user, not a multi-tenant product — favor
+    simplicity and directness over generalization/configurability unless
+    a change explicitly says otherwise.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
