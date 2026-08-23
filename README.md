@@ -51,7 +51,10 @@ The scout is a standalone Claude agent that searches the web for job listings, s
 
 **Before running:**
 
-1. Fill in `agent/cv.md` with your profile — the more specific the "What I'm Looking For" section, the better the search targeting
+1. Copy the template and fill it in — the more specific the "What I'm Looking For" section, the better the search targeting:
+   ```bash
+   cp agent/cv.md.example agent/cv.md
+   ```
 2. Make sure you've completed the values interview at least once (the scout reads your criteria from `server/data/offers.json`)
 
 ```bash
