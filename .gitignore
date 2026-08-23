@@ -6,3 +6,5 @@ dist
 npm-debug.log*
 .DS_Store
 server/data
+agent/cv.md
+agent/seen.json

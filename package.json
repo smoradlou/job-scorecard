@@ -8,9 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "dev:all": "concurrently -k -n web,api -c blue,magenta \"npm:dev\" \"npm:server\""
+    "dev:all": "concurrently -k -n web,api -c blue,magenta \"npm:dev\" \"npm:server\"",
+    "scout": "node agent/scout.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@mozilla/readability": "^0.6.0",
     "jsdom": "^30.0.1",
     "lucide-react": "^1.32.0",
