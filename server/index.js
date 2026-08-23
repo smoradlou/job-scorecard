@@ -327,7 +327,6 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 // Values framework the interview maps toward (8 dimensions + constraints).
-// See openspec/changes/improve-interview-prompt/design.md for full sourcing.
 const VALUES_FRAMEWORK = `Security (financial floor, role stability, predictability) · Influence (real decision authority that shapes outcomes — not just independence) · Mastery (getting better at something that matters) · Impact (work meaningful beyond the task) · Belonging (peer-quality team, being genuinely seen) · Recognition (expertise respected, advancement) · Stimulation (hard, novel, risky work — appetite for challenge) · Inquiry (frontier proximity, intrinsic learning, intellectual edge)`;
 
 const VALUES_INTERVIEWER_SYSTEM = `You are a perceptive career coach helping someone understand their core work values — not just their job conditions. Your goal is to surface which of these eight dimensions are the primary motivators for this person:

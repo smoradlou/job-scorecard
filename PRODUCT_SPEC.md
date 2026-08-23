@@ -8,7 +8,7 @@ A personal tool for evaluating job offers/postings against a **user-defined**
 set of values criteria, so decisions are made against explicit, personally
 meaningful criteria rather than gut feel or any one company's pitch.
 
-Single user (Sara). Not a multi-tenant product. No auth, no backend database
+Single-user tool. Not a multi-tenant product. No auth, no backend database
 required for the core scorecard — everything lives in component state for a
 session, persisted to a local JSON file between sessions.
 
@@ -105,11 +105,11 @@ is intentionally NOT persisted — only the offer data itself.
 - No login/multi-user support.
 - No integration with job boards/ATS.
 - No mobile-native app — this is a web artifact/React component only.
-- No enforcement of the €120k floor as a hard gate (see Roadmap).
+- No enforcement of comp floor as a hard gate (see Roadmap).
 
 ### 8. Roadmap / candidate next features
 
-1. Flag/warn (not block) any offer scoring below the stability floor.
+1. Flag/warn (not block) any offer scoring below a configurable floor.
 2. ~~Persist offers to `localStorage` or a small backend so history survives
    refresh~~ — done, JSON-file backend (see §5, CLAUDE.md).
 3. Export a comparison as PDF/markdown for note-taking or discussion with a

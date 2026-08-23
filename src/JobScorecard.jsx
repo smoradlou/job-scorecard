@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import ValuesInterview from "./ValuesInterview.jsx";
 
 const emptyJobFor = (criteriaList, n) => ({
@@ -141,6 +141,7 @@ export default function JobScorecard() {
       const newJob = {
         id: Date.now() + Math.random(),
         name,
+        url: jdUrl.trim() || undefined,
         scores: {
           ...Object.fromEntries(criteria.map((c) => [c.key, 5])),
           ...parsed.scores,
@@ -421,6 +422,14 @@ export default function JobScorecard() {
                 <div style={{ fontFamily: "system-ui, sans-serif", fontWeight: 700, fontSize: 16, color: colors[idx % colors.length] }}>
                   {weightedTotal(job)}
                 </div>
+                {job.url && (
+                  <a href={job.url} target="_blank" rel="noopener noreferrer"
+                    style={{ color: "#5A6178", display: "flex", padding: 4 }}
+                    title="Open listing"
+                  >
+                    <ExternalLink size={15} />
+                  </a>
+                )}
                 <button
                   onClick={() => setExpanded(expanded === job.id ? null : job.id)}
                   style={{ background: "none", border: "none", color: "#A6A18F", cursor: "pointer", padding: 4 }}
