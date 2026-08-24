@@ -56,6 +56,28 @@ function dedupeKeys(criteria) {
   });
 }
 
+const SEEN_FILE = path.join(__dirname, "../agent/seen.json");
+
+async function readSeen() {
+  try { return JSON.parse(await fs.readFile(SEEN_FILE, "utf-8")); }
+  catch (e) { if (e.code === "ENOENT") return []; throw e; }
+}
+
+app.post("/api/retire-url", async (req, res) => {
+  const { url } = req.body || {};
+  if (!url || typeof url !== "string") return res.status(400).json({ error: "url required" });
+  try {
+    const seen = await readSeen();
+    if (!seen.includes(url)) {
+      seen.push(url);
+      await fs.writeFile(SEEN_FILE, JSON.stringify(seen, null, 2), "utf-8");
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || "Failed to update seen list" });
+  }
+});
+
 app.get("/api/offers", async (req, res) => {
   try {
     const data = await readOffers();

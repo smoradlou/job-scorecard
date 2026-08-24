@@ -175,7 +175,13 @@ export default function JobScorecard() {
     setExpanded(j.id);
   };
 
-  const removeJob = (id) => setJobs(jobs.filter((j) => j.id !== id));
+  const removeJob = (id) => {
+    const job = jobs.find((j) => j.id === id);
+    if (job?.url) {
+      fetch("/api/retire-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: job.url }) });
+    }
+    setJobs(jobs.filter((j) => j.id !== id));
+  };
 
   const updateJob = (id, patch) =>
     setJobs(jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)));
