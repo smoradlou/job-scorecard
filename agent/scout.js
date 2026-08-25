@@ -113,9 +113,9 @@ function computeWeightedTotal(scores, criteria, weights) {
 
 // ─── Tools ────────────────────────────────────────────────────────────────────
 
-const fetchJdTool = betaTool({
-  name: "fetch_jd",
-  description: "Fetch and extract readable text from a job listing URL. Returns { title, text } or { error }.",
+const fetchAndScoreJdTool = betaTool({
+  name: "fetch_and_score_jd",
+  description: "Fetch a job listing and score it against the candidate's criteria in one step. Returns role_title, company, scores, rationale, and total_score (0-100), or { error } if the page can't be fetched.",
   inputSchema: {
     type: "object",
     properties: {
@@ -124,6 +124,8 @@ const fetchJdTool = betaTool({
     required: ["url"],
   },
   run: async ({ url }) => {
+    // --- Fetch phase ---
+    let jdText;
     try {
       const parsedUrl = new URL(url);
       if (!["http:", "https:"].includes(parsedUrl.protocol)) {
@@ -161,30 +163,18 @@ const fetchJdTool = betaTool({
       if (text.length < 200) {
         return JSON.stringify({ error: "Couldn't extract enough text — page may be JS-rendered. Skip this one." });
       }
-      return JSON.stringify({ title, text: text.slice(0, 8000) });
+      jdText = text.slice(0, 8000);
     } catch (e) {
       return JSON.stringify({ error: e?.name === "TimeoutError" ? "Timed out." : (e?.message || "Fetch failed.") });
     }
-  },
-});
 
-const scoreJdTool = betaTool({
-  name: "score_jd",
-  description: "Score a job description text against the candidate's values criteria. Returns role_title, company, scores, rationale, and total_score (0-100).",
-  inputSchema: {
-    type: "object",
-    properties: {
-      jd_text: { type: "string", description: "The full job description text to score" },
-    },
-    required: ["jd_text"],
-  },
-  run: async ({ jd_text }) => {
+    // --- Score phase (jdText stays local; never returned to the model) ---
     const data = await readData();
     if (!data?.criteria) {
       return JSON.stringify({ error: "No criteria found. Complete the values interview in the app first." });
     }
     const { criteria, weights = {} } = data;
-    const prompt = buildScoringPrompt(jd_text, criteria);
+    const prompt = buildScoringPrompt(jdText, criteria);
 
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -307,17 +297,16 @@ async function main() {
 
 ${cv}
 
-## Scoring criteria (used by score_jd)
+## Scoring criteria
 ${criteriaDesc}
 
 Save threshold: ${THRESHOLD}/100
 
 ## Workflow for each listing
 1. Call is_seen(url) — skip if already seen, move on.
-2. Call fetch_jd(url) — if it errors, skip and try the next listing.
-3. Call score_jd(jd_text) — returns role_title, company, scores, rationale, total_score.
-4. If total_score >= ${THRESHOLD}: call save_offer with all details.
-5. Log what you found: company, role, score, and your decision.
+2. Call fetch_and_score_jd(url) — fetches and scores in one step. If it returns { error }, skip and try the next listing.
+3. If total_score >= ${THRESHOLD}: call save_offer with all details.
+4. Log what you found: company, role, score, and your decision.
 
 ## Search strategy
 Use web_search to find relevant listings. Be specific about role type, seniority, domain, and location/remote preference from the profile. Evaluate at least 5 new listings per run. Prefer pages with the full JD text (direct employer careers pages or full-detail job boards). Don't waste fetches on aggregator pages that just list titles.`;
@@ -327,18 +316,19 @@ Use web_search to find relevant listings. Be specific about role type, seniority
   const params = {
     model: "claude-opus-5",
     max_tokens: 16000,
-    system: systemPrompt,
+    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral", ttl: "1h" } }],
     messages: [{ role: "user", content: userMessage }],
     tools: [
       { type: "web_search_20260209", name: "web_search", max_uses: 20 },
-      fetchJdTool,
-      scoreJdTool,
+      fetchAndScoreJdTool,
       isSeenTool,
       saveOfferTool,
     ],
   };
 
   const runner = client.beta.messages.toolRunner(params);
+
+  let lastUsage = null;
 
   // Iterate turn by turn; resume on pause_turn (can occur with server-side tools)
   for await (const message of runner) {
@@ -349,12 +339,19 @@ Use web_search to find relevant listings. Be specific about role type, seniority
       .trim();
     if (text) console.log("\n" + text);
 
+    if (message.usage) lastUsage = message.usage;
+
     if (message.stop_reason === "pause_turn") {
       runner.pushMessages({ role: "assistant", content: message.content });
     }
   }
 
   console.log("\nScout run complete.");
+  if (lastUsage) {
+    console.log(
+      `Tokens — input: ${lastUsage.input_tokens ?? 0}  cache_write: ${lastUsage.cache_creation_input_tokens ?? 0}  cache_read: ${lastUsage.cache_read_input_tokens ?? 0}  output: ${lastUsage.output_tokens ?? 0}`
+    );
+  }
 }
 
 main().catch((err) => {

@@ -351,13 +351,19 @@ app.post("/api/analyze", async (req, res) => {
 // Values framework the interview maps toward (8 dimensions + constraints).
 const VALUES_FRAMEWORK = `Security (financial floor, role stability, predictability) · Influence (real decision authority that shapes outcomes — not just independence) · Mastery (getting better at something that matters) · Impact (work meaningful beyond the task) · Belonging (peer-quality team, being genuinely seen) · Recognition (expertise respected, advancement) · Stimulation (hard, novel, risky work — appetite for challenge) · Inquiry (frontier proximity, intrinsic learning, intellectual edge)`;
 
-const VALUES_INTERVIEWER_SYSTEM = `You are a perceptive career coach helping someone understand their core work values — not just their job conditions. Your goal is to surface which of these eight dimensions are the primary motivators for this person:
+const VALUES_INTERVIEWER_SYSTEM = [
+  {
+    type: "text",
+    text: `You are a perceptive career coach helping someone understand their core work values — not just their job conditions. Your goal is to surface which of these eight dimensions are the primary motivators for this person:
 
 ${VALUES_FRAMEWORK}
 
 Ask ONE question at a time. Open with a behavioral retrospective — ask about a specific time they felt most alive or most like themselves at work, not what they're "looking for." After each answer, briefly name the value you heard embedded in it before asking the next question (e.g. "That sounds like Inquiry — wanting to stay close to the frontier rather than execute on known patterns"). This reflection matters: it gives them a mirror to correct if you're off, and keeps the conversation grounded in what they actually said.
 
-Adapt each follow-up to what they've told you — don't run a fixed script. Work toward understanding their top 2–3 dimensions and what each means concretely for them. After 3–4 exchanges, briefly collect any practical constraints (comp floor, remote preference, location) — these are gates, not anchors. Once you feel you have a clear enough picture (typically after 4–5 exchanges total), say so warmly and invite them to build their scorecard — but the user decides when to move on, not you. Keep replies short and conversational, no bullet points, no preamble.`;
+Adapt each follow-up to what they've told you — don't run a fixed script. Work toward understanding their top 2–3 dimensions and what each means concretely for them. After 3–4 exchanges, briefly collect any practical constraints (comp floor, remote preference, location) — these are gates, not anchors. Once you feel you have a clear enough picture (typically after 4–5 exchanges total), say so warmly and invite them to build their scorecard — but the user decides when to move on, not you. Keep replies short and conversational, no bullet points, no preamble.`,
+    cache_control: { type: "ephemeral" },
+  },
+];
 
 function buildSynthesizePrompt() {
   return `Based on the conversation so far, distill this person's work values into a scoring criteria set for comparing job offers.
@@ -389,7 +395,21 @@ app.post("/api/values-chat", async (req, res) => {
   }
 
   try {
-    const data = await callAnthropic({ system: VALUES_INTERVIEWER_SYSTEM, messages, maxTokens: 500 });
+    // Cache the tip of the conversation history so each new turn only pays
+    // full price for the one new message — everything before it is read from cache.
+    const cachedMessages = messages.map((msg, i) => {
+      if (i !== messages.length - 1) return msg;
+      const content =
+        typeof msg.content === "string"
+          ? [{ type: "text", text: msg.content, cache_control: { type: "ephemeral" } }]
+          : msg.content.map((block, j) =>
+              j === msg.content.length - 1
+                ? { ...block, cache_control: { type: "ephemeral" } }
+                : block
+            );
+      return { ...msg, content };
+    });
+    const data = await callAnthropic({ system: VALUES_INTERVIEWER_SYSTEM, messages: cachedMessages, maxTokens: 500 });
     const reply = textFromResponse(data);
     if (!reply.trim()) {
       return res.status(502).json({ error: "Empty response from model" });
