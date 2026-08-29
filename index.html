@@ -5,6 +5,45 @@
     <link rel="icon" type="image/svg+xml" href="/compass.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Career Compass</title>
+    <style>
+      :root {
+        --cc-bg: #161B27;
+        --cc-surface: #1E2433;
+        --cc-border: #2C3348;
+        --cc-border-dim: #3A4258;
+        --cc-text: #EAE6DC;
+        --cc-muted: #A6A18F;
+        --cc-dim: #5A6178;
+        --cc-accent: #E8B04B;
+        --cc-red: #C97064;
+        --cc-purple: #8A8FD1;
+      }
+      [data-theme="light"] {
+        --cc-bg: #F0EEE8;
+        --cc-surface: #FFFFFF;
+        --cc-border: #DDD9D0;
+        --cc-border-dim: #C9C5BB;
+        --cc-text: #1A2030;
+        --cc-muted: #6A6654;
+        --cc-dim: #9B9890;
+        --cc-accent: #E8B04B;
+        --cc-red: #C05048;
+        --cc-purple: #5A60B0;
+      }
+      body { background: var(--cc-bg); margin: 0; }
+      * { box-sizing: border-box; }
+    </style>
+    <!-- Anti-flicker: set theme before React mounts -->
+    <script>
+      try {
+        const saved = localStorage.getItem("cc-theme");
+        if (saved) document.documentElement.setAttribute("data-theme", saved);
+        else document.documentElement.setAttribute(
+          "data-theme",
+          window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
+        );
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
-// Mirrors server/index.js's slugify+dedupeKeys — the review step lets a
-// user rename/add rows after synthesis, so keys need to stay valid and
-// unique client-side too, not just at the moment synthesis returns.
 function slugify(label) {
   return (
     String(label)
@@ -24,10 +21,10 @@ function withDedupedKeys(criteria) {
 }
 
 const inputStyle = {
-  background: "#161B27",
-  border: "1px solid #2C3348",
+  background: "var(--cc-bg)",
+  border: "1px solid var(--cc-border)",
   borderRadius: 8,
-  color: "#EAE6DC",
+  color: "var(--cc-text)",
   fontFamily: "system-ui, sans-serif",
   fontSize: 13,
   padding: 10,
@@ -107,21 +104,16 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
   const confirm = () => onComplete(withDedupedKeys(draftCriteria));
 
   return (
-    <div style={{ minHeight: "100vh", background: "#161B27", color: "#EAE6DC", fontFamily: "'Georgia', serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--cc-bg)", color: "var(--cc-text)", fontFamily: "'Georgia', serif" }}>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 20px 80px" }}>
         <div style={{ marginBottom: 24 }}>
-          <div
-            style={{
-              fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "#E8B04B",
-              fontFamily: "system-ui, sans-serif", fontWeight: 600,
-            }}
-          >
+          <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--cc-accent)", fontFamily: "system-ui, sans-serif", fontWeight: 600 }}>
             Career Compass
           </div>
           <h1 style={{ fontSize: 26, margin: "6px 0 4px", fontWeight: 500, lineHeight: 1.15 }}>
             {phase === "chat" ? "What matters to you in your next job?" : "Here's what I heard"}
           </h1>
-          <p style={{ fontFamily: "system-ui, sans-serif", fontSize: 14, color: "#A6A18F", maxWidth: 520, margin: 0 }}>
+          <p style={{ fontFamily: "system-ui, sans-serif", fontSize: 14, color: "var(--cc-muted)", maxWidth: 520, margin: 0 }}>
             {phase === "chat"
               ? "A few questions to build a scorecard around your own priorities — not a generic template."
               : "Review, rename, reweight, or add to these before they become your scorecard."}
@@ -130,7 +122,7 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
             <button
               onClick={onCancel}
               style={{
-                marginTop: 10, background: "none", border: "none", color: "#5A6178", cursor: "pointer",
+                marginTop: 10, background: "none", border: "none", color: "var(--cc-dim)", cursor: "pointer",
                 fontFamily: "system-ui, sans-serif", fontSize: 12, textDecoration: "underline", padding: 0,
               }}
             >
@@ -141,19 +133,15 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
 
         {phase === "chat" && (
           <>
-            <div
-              style={{
-                background: "#1E2433", borderRadius: 12, border: "1px solid #2C3348", padding: "16px 18px",
-                marginBottom: 14, display: "flex", flexDirection: "column", gap: 12, minHeight: 200,
-                maxHeight: 420, overflowY: "auto",
-              }}
-            >
-              <div
-                style={{
-                  alignSelf: "flex-start", maxWidth: "85%", background: "#161B27", borderRadius: 10,
-                  padding: "10px 12px", fontFamily: "system-ui, sans-serif", fontSize: 13, lineHeight: 1.5,
-                }}
-              >
+            <div style={{
+              background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)",
+              padding: "16px 18px", marginBottom: 14, display: "flex", flexDirection: "column", gap: 12,
+              minHeight: 200, maxHeight: 420, overflowY: "auto",
+            }}>
+              <div style={{
+                alignSelf: "flex-start", maxWidth: "85%", background: "var(--cc-bg)", borderRadius: 10,
+                padding: "10px 12px", fontFamily: "system-ui, sans-serif", fontSize: 13, lineHeight: 1.5,
+              }}>
                 Tell me about a time at work when you felt most fully yourself — most alive in what you were doing. What were you working on, and what specifically made it feel that way?
               </div>
               {messages.map((m, i) => (
@@ -162,8 +150,8 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                   style={{
                     alignSelf: m.role === "user" ? "flex-end" : "flex-start",
                     maxWidth: "85%",
-                    background: m.role === "user" ? "#E8B04B" : "#161B27",
-                    color: m.role === "user" ? "#161B27" : "#EAE6DC",
+                    background: m.role === "user" ? "var(--cc-accent)" : "var(--cc-bg)",
+                    color: m.role === "user" ? "#161B27" : "var(--cc-text)",
                     borderRadius: 10,
                     padding: "10px 12px",
                     fontFamily: "system-ui, sans-serif",
@@ -176,12 +164,12 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                 </div>
               ))}
               {isSending && (
-                <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#5A6178" }}>Thinking…</div>
+                <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "var(--cc-dim)" }}>Thinking…</div>
               )}
               <div ref={transcriptEndRef} />
             </div>
             {chatError && (
-              <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#C97064", marginBottom: 8 }}>
+              <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "var(--cc-red)", marginBottom: 8 }}>
                 {chatError}
               </div>
             )}
@@ -203,8 +191,8 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                 disabled={isSending || !input.trim()}
                 style={{
                   padding: "0 18px", borderRadius: 8, border: "none",
-                  background: isSending || !input.trim() ? "#3A4258" : "#E8B04B",
-                  color: isSending || !input.trim() ? "#8A8FD1" : "#161B27",
+                  background: isSending || !input.trim() ? "var(--cc-border-dim)" : "var(--cc-accent)",
+                  color: isSending || !input.trim() ? "var(--cc-purple)" : "#161B27",
                   fontFamily: "system-ui, sans-serif", fontSize: 13, fontWeight: 700,
                   cursor: isSending || !input.trim() ? "default" : "pointer",
                 }}
@@ -218,8 +206,8 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                   onClick={buildScorecard}
                   disabled={isSynthesizing}
                   style={{
-                    width: "100%", padding: "12px", borderRadius: 10, border: "1px dashed #3A4258",
-                    background: "none", color: isSynthesizing ? "#3A4258" : "#A6A18F",
+                    width: "100%", padding: "12px", borderRadius: 10, border: "1px dashed var(--cc-border-dim)",
+                    background: "none", color: isSynthesizing ? "var(--cc-border-dim)" : "var(--cc-muted)",
                     fontFamily: "system-ui, sans-serif", fontSize: 13, fontWeight: 600,
                     cursor: isSynthesizing ? "default" : "pointer",
                   }}
@@ -227,7 +215,7 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                   {isSynthesizing ? "Building your scorecard…" : "Build my scorecard"}
                 </button>
                 {synthesizeError && (
-                  <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#C97064", marginTop: 8 }}>
+                  <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, color: "var(--cc-red)", marginTop: 8 }}>
                     {synthesizeError}
                   </div>
                 )}
@@ -239,13 +227,11 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
         {phase === "reviewing" && (
           <>
             {summary && (
-              <div
-                style={{
-                  background: "#1E2433", borderRadius: 12, border: "1px solid #2C3348", padding: "14px 16px",
-                  marginBottom: 16, fontFamily: "system-ui, sans-serif", fontSize: 13, color: "#A6A18F",
-                  lineHeight: 1.5,
-                }}
-              >
+              <div style={{
+                background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)",
+                padding: "14px 16px", marginBottom: 16, fontFamily: "system-ui, sans-serif", fontSize: 13,
+                color: "var(--cc-muted)", lineHeight: 1.5,
+              }}>
                 {summary}
               </div>
             )}
@@ -254,8 +240,8 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                 <div
                   key={i}
                   style={{
-                    background: "#1E2433", borderRadius: 12, border: "1px solid #2C3348", padding: "14px 16px",
-                    display: "flex", flexDirection: "column", gap: 8,
+                    background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)",
+                    padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8,
                   }}
                 >
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -267,7 +253,7 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                     />
                     <button
                       onClick={() => removeRow(i)}
-                      style={{ background: "none", border: "none", color: "#5A6178", cursor: "pointer", padding: 4 }}
+                      style={{ background: "none", border: "none", color: "var(--cc-dim)", cursor: "pointer", padding: 4 }}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -279,22 +265,18 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
                     style={inputStyle}
                   />
                   <div>
-                    <div
-                      style={{
-                        display: "flex", justifyContent: "space-between", fontFamily: "system-ui, sans-serif",
-                        fontSize: 12, color: "#A6A18F", marginBottom: 4,
-                      }}
-                    >
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", fontFamily: "system-ui, sans-serif",
+                      fontSize: 12, color: "var(--cc-muted)", marginBottom: 4,
+                    }}>
                       <span>Weight</span>
-                      <span style={{ color: "#E8B04B" }}>{c.weight}</span>
+                      <span style={{ color: "var(--cc-accent)" }}>{c.weight}</span>
                     </div>
                     <input
-                      type="range"
-                      min="1"
-                      max="5"
+                      type="range" min="1" max="5"
                       value={c.weight}
                       onChange={(e) => updateRow(i, { weight: Number(e.target.value) })}
-                      style={{ width: "100%", accentColor: "#E8B04B" }}
+                      style={{ width: "100%", accentColor: "var(--cc-accent)" }}
                     />
                   </div>
                 </div>
@@ -303,9 +285,9 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
             <button
               onClick={addRow}
               style={{
-                width: "100%", padding: "12px", borderRadius: 10, border: "1px dashed #3A4258", background: "none",
-                color: "#A6A18F", fontFamily: "system-ui, sans-serif", fontSize: 13, marginBottom: 16,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+                width: "100%", padding: "12px", borderRadius: 10, border: "1px dashed var(--cc-border-dim)",
+                background: "none", color: "var(--cc-muted)", fontFamily: "system-ui, sans-serif", fontSize: 13,
+                marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
               }}
             >
               <Plus size={14} /> Add a criterion
@@ -315,8 +297,8 @@ export default function ValuesInterview({ existingCriteria, onComplete, onCancel
               disabled={!canConfirm}
               style={{
                 width: "100%", padding: "12px", borderRadius: 10, border: "none",
-                background: canConfirm ? "#E8B04B" : "#3A4258",
-                color: canConfirm ? "#161B27" : "#8A8FD1",
+                background: canConfirm ? "var(--cc-accent)" : "var(--cc-border-dim)",
+                color: canConfirm ? "#161B27" : "var(--cc-purple)",
                 fontFamily: "system-ui, sans-serif", fontSize: 14, fontWeight: 700,
                 cursor: canConfirm ? "pointer" : "default",
               }}

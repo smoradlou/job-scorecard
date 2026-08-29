@@ -24,4 +24,4 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Run `npm run scout 2>&1` twice in quick succession (< 5 minutes apart). Confirm the second run logs `cache_read_input_tokens > 0` in the usage output, confirming the system prompt cache warmed on the first run and was read on the second.
+- [x] 5.1 Run `npm run scout 2>&1` twice in quick succession (< 5 minutes apart). Confirm the second run logs `cache_read_input_tokens > 0` in the usage output, confirming the system prompt cache warmed on the first run and was read on the second.
