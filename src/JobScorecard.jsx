@@ -256,7 +256,7 @@ export default function JobScorecard() {
     : [];
 
   const colors = ["#E8B04B", "#4FA89B", "#C97064", "#8A8FD1", "#6FBF73"];
-  const ranked = criteria ? [...jobs].sort((a, b) => weightedTotal(b) - weightedTotal(a)) : [];
+  const ranked = criteria ? [...activeJobs].sort((a, b) => weightedTotal(b) - weightedTotal(a)) : [];
 
   if (!loaded) {
     return (
@@ -491,7 +491,7 @@ export default function JobScorecard() {
 
             {/* Job tiles */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {jobs.map((job, idx) => (
+              {ranked.map((job, idx) => (
                 <div key={job.id} style={{ background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)", overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px" }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: colors[idx % colors.length], flexShrink: 0 }} />
