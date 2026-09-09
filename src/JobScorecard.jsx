@@ -17,14 +17,21 @@ const STATUS_OPTIONS = [
   { value: "saved",        label: "Saved" },
   { value: "applied",      label: "Applied" },
   { value: "interviewing", label: "Interviewing" },
-  { value: "closed",       label: "Offer / Closed" },
+  { value: "offer",        label: "Offer" },
+  { value: "closed",       label: "Closed" },
 ];
 
 const BOARD_COLUMNS = [
   { status: "saved",        label: "Saved",          dot: "#5A6178" },
   { status: "applied",      label: "Applied",         dot: "#8A8FD1" },
   { status: "interviewing", label: "Interviewing",    dot: "#E8B04B" },
-  { status: "closed",       label: "Offer / Closed",  dot: "#6FBF73" },
+  {
+    label: "Offer / Closed",
+    sections: [
+      { status: "offer",   label: "Offer",   dot: "#6FBF73" },
+      { status: "closed",  label: "Closed",  dot: "#C97064" },
+    ],
+  },
 ];
 
 const scoreColor = (score) => {
@@ -238,10 +245,12 @@ export default function JobScorecard() {
     }));
   };
 
+  const activeJobs = jobs.filter((j) => j.status !== "closed");
+
   const radarData = criteria
     ? criteria.map((c) => {
         const point = { criterion: c.label };
-        jobs.forEach((j) => { point[j.name] = j.scores[c.key] ?? 5; });
+        activeJobs.forEach((j) => { point[j.name] = j.scores[c.key] ?? 5; });
         return point;
       })
     : [];
@@ -272,7 +281,7 @@ export default function JobScorecard() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--cc-bg)", color: "var(--cc-text)", fontFamily: "'Georgia', serif" }}>
-      <div style={{ maxWidth: viewMode === "board" ? 980 : 760, margin: "0 auto", padding: "32px 20px 80px" }}>
+      <div style={{ maxWidth: viewMode === "board" ? 1200 : 760, margin: "0 auto", padding: "32px 20px 80px" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 28 }}>
@@ -469,7 +478,7 @@ export default function JobScorecard() {
                   <PolarGrid stroke="var(--cc-border)" />
                   <PolarAngleAxis dataKey="criterion" tick={{ fill: "var(--cc-muted)", fontSize: 11, fontFamily: "system-ui, sans-serif" }} />
                   <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
-                  {jobs.map((j, i) => (
+                  {activeJobs.map((j, i) => (
                     <Radar
                       key={j.id} name={j.name} dataKey={j.name}
                       stroke={colors[i % colors.length]} fill={colors[i % colors.length]}
@@ -597,70 +606,122 @@ export default function JobScorecard() {
         {viewMode === "board" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-              {BOARD_COLUMNS.map(({ status, label, dot }) => {
-                const colJobs = jobs
-                  .filter((j) => (j.status ?? "saved") === status)
-                  .sort((a, b) => weightedTotal(b) - weightedTotal(a));
+              {BOARD_COLUMNS.map((col) => {
+                const isCombined = !!col.sections;
+                const colKey = isCombined ? "offer-closed" : col.status;
+
+                const renderCard = (job, cardStatus) => {
+                  const score = weightedTotal(job);
+                  const days = daysAgo(job.appliedAt);
+                  const title = job.name.length > 52 ? job.name.slice(0, 52) + "…" : job.name;
+                  return (
+                    <div key={job.id} style={{ background: "var(--cc-bg)", borderRadius: 9, padding: "11px 12px 10px", marginBottom: 8, border: "1px solid var(--cc-border)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, fontWeight: 600, color: "var(--cc-text)", lineHeight: 1.35, flex: 1 }}>
+                          {title}
+                        </div>
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 14, fontWeight: 700, color: scoreColor(score), flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                          {score}
+                        </div>
+                      </div>
+                      {job.statusNote && (
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, color: "var(--cc-dim)", marginBottom: 5, lineHeight: 1.4 }}>
+                          {job.statusNote}
+                        </div>
+                      )}
+                      {cardStatus === "applied" && days !== null && (
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 10, color: "var(--cc-dim)", marginBottom: 6 }}>
+                          Applied {days === 0 ? "today" : `${days}d ago`}
+                        </div>
+                      )}
+                      <select
+                        value={job.status}
+                        onChange={(e) => updateJobStatus(job.id, e.target.value)}
+                        style={{
+                          width: "100%", background: "var(--cc-surface)", border: "1px solid var(--cc-border)", borderRadius: 5,
+                          color: "var(--cc-dim)", fontFamily: "system-ui, sans-serif", fontSize: 10,
+                          padding: "3px 5px", cursor: "pointer",
+                        }}
+                      >
+                        {STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                };
+
+                if (isCombined) {
+                  const totalCount = col.sections.reduce((sum, sec) => {
+                    return sum + jobs.filter((j) => (j.status ?? "saved") === sec.status).length;
+                  }, 0);
+                  return (
+                    <div key={colKey} style={{ background: "var(--cc-surface)", borderRadius: 12, padding: 14, border: "1px solid var(--cc-border)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid var(--cc-border)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {col.sections.map((sec, i) => (
+                            <span key={sec.status} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              {i > 0 && <span style={{ color: "var(--cc-dim)", fontSize: 10, margin: "0 1px" }}>/</span>}
+                              <div style={{ width: 7, height: 7, borderRadius: "50%", background: sec.dot, flexShrink: 0 }} />
+                              <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: sec.dot }}>
+                                {sec.label}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                        <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, fontWeight: 600, color: "var(--cc-dim)", background: "var(--cc-border)", borderRadius: 20, padding: "1px 7px", fontVariantNumeric: "tabular-nums" }}>
+                          {totalCount}
+                        </span>
+                      </div>
+                      {col.sections.map((sec, secIdx) => {
+                        const secJobs = jobs.filter((j) => (j.status ?? "saved") === sec.status).sort((a, b) => weightedTotal(b) - weightedTotal(a));
+                        return (
+                          <div key={sec.status}>
+                            {secIdx > 0 && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "10px 0 8px" }}>
+                                <div style={{ flex: 1, height: 1, background: "var(--cc-border)" }} />
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: sec.dot }} />
+                                  <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: sec.dot }}>
+                                    {sec.label}
+                                  </span>
+                                </div>
+                                <div style={{ flex: 1, height: 1, background: "var(--cc-border)" }} />
+                              </div>
+                            )}
+                            {secJobs.length === 0 && (
+                              <div style={{ border: "1.5px dashed var(--cc-border)", borderRadius: 8, padding: "14px 10px", textAlign: "center", color: "var(--cc-border-dim)", fontSize: 11, fontFamily: "system-ui, sans-serif", marginBottom: 4 }}>
+                                {sec.status === "offer" ? "No offers yet" : "Nothing closed"}
+                              </div>
+                            )}
+                            {secJobs.map((job) => renderCard(job, sec.status))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                const colJobs = jobs.filter((j) => (j.status ?? "saved") === col.status).sort((a, b) => weightedTotal(b) - weightedTotal(a));
                 return (
-                  <div key={status} style={{ background: "var(--cc-surface)", borderRadius: 12, padding: 14, border: "1px solid var(--cc-border)" }}>
+                  <div key={colKey} style={{ background: "var(--cc-surface)", borderRadius: 12, padding: 14, border: "1px solid var(--cc-border)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid var(--cc-border)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: dot, flexShrink: 0 }} />
-                        <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: dot }}>
-                          {label}
+                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: col.dot, flexShrink: 0 }} />
+                        <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: col.dot }}>
+                          {col.label}
                         </span>
                       </div>
                       <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, fontWeight: 600, color: "var(--cc-dim)", background: "var(--cc-border)", borderRadius: 20, padding: "1px 7px", fontVariantNumeric: "tabular-nums" }}>
                         {colJobs.length}
                       </span>
                     </div>
-
                     {colJobs.length === 0 && (
                       <div style={{ border: "1.5px dashed var(--cc-border)", borderRadius: 8, padding: "20px 10px", textAlign: "center", color: "var(--cc-border-dim)", fontSize: 11, fontFamily: "system-ui, sans-serif" }}>
                         No offers here yet
                       </div>
                     )}
-
-                    {colJobs.map((job) => {
-                      const score = weightedTotal(job);
-                      const days = daysAgo(job.appliedAt);
-                      const title = job.name.length > 52 ? job.name.slice(0, 52) + "…" : job.name;
-                      return (
-                        <div key={job.id} style={{ background: "var(--cc-bg)", borderRadius: 9, padding: "11px 12px 10px", marginBottom: 8, border: "1px solid var(--cc-border)" }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                            <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, fontWeight: 600, color: "var(--cc-text)", lineHeight: 1.35, flex: 1 }}>
-                              {title}
-                            </div>
-                            <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 14, fontWeight: 700, color: scoreColor(score), flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
-                              {score}
-                            </div>
-                          </div>
-                          {job.statusNote && (
-                            <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, color: "var(--cc-dim)", marginBottom: 5, lineHeight: 1.4 }}>
-                              {job.statusNote}
-                            </div>
-                          )}
-                          {status === "applied" && days !== null && (
-                            <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 10, color: "var(--cc-dim)", marginBottom: 6 }}>
-                              Applied {days === 0 ? "today" : `${days}d ago`}
-                            </div>
-                          )}
-                          <select
-                            value={job.status}
-                            onChange={(e) => updateJobStatus(job.id, e.target.value)}
-                            style={{
-                              width: "100%", background: "var(--cc-surface)", border: "1px solid var(--cc-border)", borderRadius: 5,
-                              color: "var(--cc-dim)", fontFamily: "system-ui, sans-serif", fontSize: 10,
-                              padding: "3px 5px", cursor: "pointer",
-                            }}
-                          >
-                            {STATUS_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
+                    {colJobs.map((job) => renderCard(job, col.status))}
                   </div>
                 );
               })}
@@ -672,7 +733,7 @@ export default function JobScorecard() {
                   <PolarGrid stroke="var(--cc-border)" />
                   <PolarAngleAxis dataKey="criterion" tick={{ fill: "var(--cc-muted)", fontSize: 11, fontFamily: "system-ui, sans-serif" }} />
                   <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
-                  {jobs.map((j, i) => (
+                  {activeJobs.map((j, i) => (
                     <Radar
                       key={j.id} name={j.name} dataKey={j.name}
                       stroke={colors[i % colors.length]} fill={colors[i % colors.length]}
