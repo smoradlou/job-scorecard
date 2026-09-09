@@ -34,6 +34,8 @@ const BOARD_COLUMNS = [
   },
 ];
 
+const SCOUT_THRESHOLD = 70;
+
 const scoreColor = (score) => {
   if (score >= 80) return "#8A8FD1";
   if (score >= 65) return "#6FBF73";
@@ -459,15 +461,31 @@ export default function JobScorecard() {
                 <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--cc-muted)", marginBottom: 10 }}>
                   Ranking
                 </div>
-                {ranked.map((j, i) => (
-                  <div key={j.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--cc-border)" }}>
-                    <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 13, color: "var(--cc-dim)", width: 18 }}>{i + 1}</div>
-                    <div style={{ flex: 1, fontFamily: "system-ui, sans-serif", fontSize: 14 }}>{j.name}</div>
-                    <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 16, fontWeight: 700, color: colors[jobs.indexOf(j) % colors.length] }}>
-                      {weightedTotal(j)}
+                {ranked.map((j, i) => {
+                  const score = weightedTotal(j);
+                  const prevScore = i > 0 ? weightedTotal(ranked[i - 1]) : null;
+                  const showThreshold = prevScore !== null && prevScore >= SCOUT_THRESHOLD && score < SCOUT_THRESHOLD;
+                  return (
+                    <div key={j.id}>
+                      {showThreshold && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
+                          <div style={{ flex: 1, height: 1, background: "var(--cc-border-dim)" }} />
+                          <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--cc-dim)" }}>
+                            Scout threshold · {SCOUT_THRESHOLD}
+                          </span>
+                          <div style={{ flex: 1, height: 1, background: "var(--cc-border-dim)" }} />
+                        </div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--cc-border)", opacity: score < SCOUT_THRESHOLD ? 0.55 : 1 }}>
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 13, color: "var(--cc-dim)", width: 18 }}>{i + 1}</div>
+                        <div style={{ flex: 1, fontFamily: "system-ui, sans-serif", fontSize: 14 }}>{j.name}</div>
+                        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 16, fontWeight: 700, color: colors[jobs.indexOf(j) % colors.length] }}>
+                          {score}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -491,8 +509,22 @@ export default function JobScorecard() {
 
             {/* Job tiles */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {ranked.map((job, idx) => (
-                <div key={job.id} style={{ background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)", overflow: "hidden" }}>
+              {ranked.map((job, idx) => {
+                const tileScore = weightedTotal(job);
+                const prevTileScore = idx > 0 ? weightedTotal(ranked[idx - 1]) : null;
+                const showThresholdLine = prevTileScore !== null && prevTileScore >= SCOUT_THRESHOLD && tileScore < SCOUT_THRESHOLD;
+                return (
+                  <div key={job.id}>
+                    {showThresholdLine && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                        <div style={{ flex: 1, height: 1, background: "var(--cc-border-dim)" }} />
+                        <span style={{ fontFamily: "system-ui, sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--cc-dim)" }}>
+                          Scout threshold · {SCOUT_THRESHOLD}
+                        </span>
+                        <div style={{ flex: 1, height: 1, background: "var(--cc-border-dim)" }} />
+                      </div>
+                    )}
+                    <div style={{ background: "var(--cc-surface)", borderRadius: 12, border: "1px solid var(--cc-border)", overflow: "hidden", opacity: tileScore < SCOUT_THRESHOLD ? 0.6 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px" }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: colors[idx % colors.length], flexShrink: 0 }} />
                     <input
@@ -585,7 +617,9 @@ export default function JobScorecard() {
                     </div>
                   )}
                 </div>
-              ))}
+                </div>
+              );
+              })}
             </div>
 
             <button
