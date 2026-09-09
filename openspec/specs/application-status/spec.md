@@ -56,6 +56,18 @@ Given the board view is active and a job is in the Applied column, when the user
 
 Given a job with `status: "offer"` and a job with `status: "closed"`, when the board view is active, then both appear in the fourth column — the offer job above the divider, the closed job below it.
 
+### Requirement: Scout threshold divider in ranking
+
+The ranking view displays a labeled divider between the last job scoring ≥70 and the first job scoring below 70. The divider reads "Scout threshold · 70" and appears in both the compact ranking table and the job tiles section. Jobs below the threshold are rendered at reduced opacity (visually dimmed) to distinguish strong fits from weaker ones without hiding them.
+
+#### Scenario: threshold divider placement
+
+Given the ranked list contains jobs scoring 81, 75, 70, 69, 68, when the ranking view renders, then the divider appears between the job scored 70 and the job scored 69, and the jobs scored 69 and 68 are visually dimmed.
+
+#### Scenario: all jobs above threshold
+
+Given all active jobs score ≥70, when the ranking view renders, then no divider is shown.
+
 ### Requirement: Closed jobs excluded from radar chart
 
 Jobs with `status: "closed"` are excluded from the radar chart comparison. Only active jobs (`status` ≠ `"closed"`) appear as series on the chart. `offer` jobs remain included.
